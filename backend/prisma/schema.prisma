@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  avatar        String?   @default("/avatars/default.jpg")
+  coverPhoto    String?   @default("/covers/default.jpg")
+  signature     String?
+  bio           String?
+  role          String    @default("MEMBER") // GUEST, MEMBER, VIP, MOD, ADMIN
+  reputation    Int       @default(0)
+  lastSeen      DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  
+  threads       Thread[]
+  posts         Post[]
+  likes         Like[]
+  notifications Notification[] @relation("UserNotifications")
+  auditLogs     AuditLog[]
+  
+  // Follow system
+  following     Follow[]  @relation("Following")
+  followers     Follow[]  @relation("Followers")
+
+  // Private Messages
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  order       Int      @default(0)
+  isVisible   Boolean  @default(true)
+  forums      Forum[]
+}
+
+model Forum {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  threads     Thread[]
+  order       Int      @default(0)
+  
+  // Permissions (shorthand for now)
+  minRoleRead  String  @default("GUEST")
+  minRoleWrite String  @default("MEMBER")
+  icon         String?
+}
+
+model Thread {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  forumId   String
+  forum     Forum    @relation(fields: [forumId], references: [id])
+  posts     Post[]
+  tags      String?  // Comma separated tags for now
+  isLocked  Boolean  @default(false)
+  isPinned  Boolean  @default(false)
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id])
+  likes     Like[]
+  isEdited  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserNotifications", fields: [userId], references: [id])
+  type      String   // LIKE, REPLY, MENTION, FOLLOW
+  actorId   String   // The user who triggered the notification
+  targetId  String?  // ThreadId or PostId
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Follow {
+  followerId  String
+  follower    User   @relation("Following", fields: [followerId], references: [id])
+  followingId String
+  following   User   @relation("Followers", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  content     String
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model SystemConfig {
+  key   String @id
+  value String
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  target    String?
+  details   String?
+  adminId   String
+  admin     User     @relation(fields: [adminId], references: [id])
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,111 @@
+Bạn là một Senior Full-Stack Developer + System Architect.
+Nhiệm vụ của bạn là thiết kế và xây dựng một website forum hiện đại,
+chức năng đầy đủ tương đương https://darkforums.me (chỉ học cấu trúc & chức năng, không sao chép giao diện hoặc nội dung).
+
+YÊU CẦU CHUNG
+- Website forum hoàn chỉnh, production-ready
+- Có frontend + backend + database
+- Code rõ ràng, dễ mở rộng
+- Bảo mật tốt, chống spam, chống XSS, CSRF, SQL Injection
+- Chuẩn SEO, responsive, dark mode
+
+==============================
+CHỨC NĂNG NGƯỜI DÙNG (USER)
+==============================
+1. Tài khoản & xác thực
+- Đăng ký / đăng nhập / đăng xuất
+- Xác thực email
+- Quên mật khẩu / đổi mật khẩu
+- OAuth (Google – optional)
+- Giới hạn số lần đăng nhập sai
+
+2. Hồ sơ cá nhân
+- Username, display name
+- Avatar:
+  - Tự động tạo avatar mặc định (chữ cái đầu + màu ngẫu nhiên)
+  - Cho phép upload avatar riêng
+  - Resize, nén ảnh tự động
+- Ảnh bìa profile
+- Chữ ký
+- Thông tin cá nhân
+- Thống kê: số bài viết, ngày tham gia
+
+3. Forum & bài viết
+- Category / Sub-category
+- Tạo chủ đề (thread)
+- Trả lời bài viết
+- Sửa / xoá bài của chính mình
+- Trích dẫn (quote)
+- @mention
+- Markdown hoặc WYSIWYG editor
+- Gắn tag
+- Like / reaction
+- Theo dõi topic
+
+4. Tương tác
+- Thông báo realtime:
+  - Có reply
+  - Có mention
+  - Có like
+- Tin nhắn riêng (private message)
+- Online / offline status
+
+==============================
+PHÂN QUYỀN & ROLE
+==============================
+- Guest
+- Member
+- Moderator
+- Admin
+
+Phân quyền chi tiết:
+- Đăng / sửa / xoá bài
+- Khoá / ghim chủ đề
+- Ban / unban user
+- Truy cập admin panel
+
+==============================
+ADMIN PANEL
+==============================
+- Dashboard thống kê
+- Quản lý user
+- Quản lý role & permission
+- Quản lý category
+- Duyệt / xoá bài viết
+- Xử lý report vi phạm
+- Cấu hình forum:
+  - Avatar mặc định
+  - Giới hạn upload
+  - Bật/tắt đăng ký
+  - Bộ lọc từ cấm
+- Log hành động admin
+
+==============================
+HỆ THỐNG TỰ ĐỘNG
+==============================
+- Chống spam (captcha, rate limit)
+- Auto khóa topic không hoạt động
+- Auto gợi ý bài viết liên quan
+- Auto backup database
+- Audit log
+- Full-text search
+
+==============================
+YÊU CẦU TRIỂN KHAI
+==============================
+- Thiết kế database schema (ERD)
+- Viết API endpoints
+- Middleware auth & permission
+- Ví dụ dữ liệu mẫu
+- Hướng dẫn cài đặt & chạy project
+- Gợi ý mở rộng trong tương lai
+
+TRẢ LỜI THEO THỨ TỰ:
+1. Kiến trúc tổng thể
+2. Database schema
+3. API design
+4. Luồng auth
+5. Chức năng avatar tự động
+6. Admin panel
+7. Security checklist
+8. Hướng dẫn run project
