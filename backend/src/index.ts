@@ -11,13 +11,33 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
 
+// Trust proxy for X-Forwarded-For header (used by Cloudflare, nginx, etc)
+app.set('trust proxy', 1);
+
+// CORS Configuration
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:3000',
+      'https://develops-grad-apartment-picture.trycloudflare.com',
+      'https://gojoforums.site'
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Global Security Middlewares
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  next();
-});
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Global Rate Limiter: Prevent general DDOS (Max 100 requests per 15 mins per IP)

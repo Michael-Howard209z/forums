@@ -12,8 +12,11 @@ const Avatar = ({ src, name, size = 40, borderRadius = '4px', border = '1px soli
   const isDefault = !src || src.includes('default.jpg');
   const sizePx = typeof size === 'number' ? `${size}px` : size;
   
-  // Fix for LAN access: replace localhost with the server IP
-  const finalSrc = src?.replace('localhost', '192.168.1.8');
+  // Convert absolute URLs to relative paths for cross-domain compatibility
+  const finalSrc = src ? (src.startsWith('http') 
+    ? src.replace(/http:\/\/[^/]+/, '') 
+    : src) 
+    : src;
 
   if (!isDefault) {
     return (

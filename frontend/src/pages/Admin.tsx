@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Users, MessageSquare, Settings, BarChart, AlertTriangle, CheckCircle, Trash2, Pin, Lock, Unlock, Loader2, Save, Layers, Plus, Edit2, ClipboardList, FolderPlus, MessageCircle } from 'lucide-react';
+import { Shield, Users, MessageSquare, Settings, BarChart, Trash2, Pin, Lock, Save, Layers, Plus, Edit2, ClipboardList, FolderPlus } from 'lucide-react';
 import { forumApi } from '../api';
 
 const Admin = () => {
@@ -11,7 +11,7 @@ const Admin = () => {
   const [settings, setSettings] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  
   const [initialCheck, setInitialCheck] = useState(true);
   
   // Modal states
@@ -35,7 +35,6 @@ const Admin = () => {
     if (initialCheck || !user || user.role !== 'ADMIN') return;
 
     const fetchData = async () => {
-      setLoading(true);
       try {
         if (activeTab === 'dashboard') {
           const res = await forumApi.getStats();
@@ -59,7 +58,6 @@ const Admin = () => {
       } catch (err) {
         console.error("Admin data fetch error", err);
       } finally {
-        setLoading(false);
       }
     };
     fetchData();

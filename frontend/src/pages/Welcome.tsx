@@ -73,7 +73,7 @@ const Welcome = () => {
             style={{ textAlign: 'center', zIndex: 10 }}
           >
             <motion.div>
-              <img src="http://192.168.1.8:5000/images/gojo_hero.jpg" 
+              <img src="/images/gojo_hero.jpg" 
               style={{ width: '300px', height: '300px', objectFit: 'contain', marginBottom: '2rem' }}
               alt="icon" />
             </motion.div> 

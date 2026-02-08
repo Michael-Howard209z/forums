@@ -3,10 +3,25 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-    server: {
-    allowedHosts: [
-      'develops-grad-apartment-picture.trycloudflare.com'
-    ]
-  },
   plugins: [react()],
+  server: {
+    allowedHosts: [
+      'develops-grad-apartment-picture.trycloudflare.com',
+      'gojoforums.site'
+    ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/images': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/avatar': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      }
+    }
+  },
 })

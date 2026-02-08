@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-export const API_URL = 'http://localhost:5000/api';
-export const BASE_URL = 'http://localhost:5000';
+// Use relative path so it works with both localhost and Cloudflare tunnel
+export const API_URL = '/api';
+export const BASE_URL = '';
 
 const api = axios.create({
   baseURL: API_URL,

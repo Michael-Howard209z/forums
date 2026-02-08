@@ -352,7 +352,7 @@ const Profile = () => {
                                     }}
                                 >
                                     <img 
-                                        src={`${BASE_URL}${path}`} 
+                                        src={path} 
                                         alt="avatar" 
                                         style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }}
                                     />

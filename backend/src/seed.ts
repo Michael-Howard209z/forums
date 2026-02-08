@@ -4,12 +4,16 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Clean up existing data
+  // Clean up existing data (in reverse order of foreign key dependencies)
   await prisma.like.deleteMany();
   await prisma.post.deleteMany();
   await prisma.thread.deleteMany();
   await prisma.forum.deleteMany();
   await prisma.category.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.follow.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.auditLog.deleteMany();
   await prisma.user.deleteMany();
 
   // 1. Create ADMIN User
@@ -20,7 +24,7 @@ async function main() {
       name: 'Gojo Satoru',
       password: adminPassword,
       role: 'ADMIN',
-      avatar: 'http://localhost:5000/images/gojo_hero.jpg',
+      avatar: '/images/gojo_hero.jpg',
       bio: 'The strongest sorcerer. Administrator of the Forbidden Archives.',
       signature: 'Throughout Heaven and Earth, I alone am the honored one.',
       reputation: 9999
