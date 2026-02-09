@@ -60,6 +60,19 @@ router.put('/user/avatar', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
+// Heartbeat - Keep user marked as online
+router.post('/heartbeat', authenticate, async (req: AuthRequest, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { lastSeen: new Date() }
+    });
+    res.json({ status: 'ok' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error updating heartbeat', error: error.message });
+  }
+});
+
 router.get('/config', async (req, res) => {
   try {
     const configItems = await prisma.systemConfig.findMany();
@@ -361,6 +374,35 @@ router.get('/stats', async (req, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ message: 'Error fetching stats', error: error.message });
+  }
+});
+
+// Get online members (lastSeen within 5 minutes)
+router.get('/online-members', async (req, res) => {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    const onlineMembers = await prisma.user.findMany({
+      where: {
+        lastSeen: {
+          gte: fiveMinutesAgo
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        role: true
+      },
+      orderBy: { lastSeen: 'desc' }
+    });
+
+    res.json({
+      onlineCount: onlineMembers.length,
+      members: onlineMembers
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error fetching online members', error: error.message });
   }
 });
 
@@ -714,25 +756,45 @@ router.get('/messages/conversations', authenticate, async (req: AuthRequest, res
 });
 
 // Get chat history with a specific user
+// Supports incremental fetch via ?since=<ISO timestamp>. If not provided, returns last 100 messages.
 router.get('/messages/:userId', authenticate, async (req: AuthRequest, res) => {
   try {
     const myId = req.user.id;
     const otherId = req.params.userId as string;
+    const since = req.query.since as string | undefined;
 
-    const messages = await prisma.message.findMany({
-      where: {
-        OR: [
-          { senderId: myId, receiverId: otherId },
-          { senderId: otherId, receiverId: myId }
-        ]
-      },
-      orderBy: { createdAt: 'asc' },
-      include: {
-        sender: { select: { id: true, name: true, avatar: true } }
-      }
-    });
+    let messages;
+    if (since) {
+      const sinceDate = new Date(since);
+      // Fetch only messages after 'since'
+      messages = await prisma.message.findMany({
+        where: {
+          OR: [
+            { senderId: myId, receiverId: otherId, createdAt: { gt: sinceDate } },
+            { senderId: otherId, receiverId: myId, createdAt: { gt: sinceDate } }
+          ]
+        },
+        orderBy: { createdAt: 'asc' },
+        include: { sender: { select: { id: true, name: true, avatar: true } } }
+      });
+    } else {
+      // Initial load: return last 100 messages to avoid fetching entire history
+      const recent = await prisma.message.findMany({
+        where: {
+          OR: [
+            { senderId: myId, receiverId: otherId },
+            { senderId: otherId, receiverId: myId }
+          ]
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        include: { sender: { select: { id: true, name: true, avatar: true } } }
+      });
+      // reverse to chronological order
+      messages = recent.reverse();
+    }
 
-    // Mark as read
+    // Mark as read for messages received from other user up to now
     await prisma.message.updateMany({
       where: { senderId: otherId, receiverId: myId, isRead: false },
       data: { isRead: true }

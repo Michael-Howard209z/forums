@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, Menu, X, Home, Database, Zap, Search, Shield, Plus, LogIn, UserPlus } from 'lucide-react';
+import { LogOut, Menu, X, Home, Database, Zap, Search, Shield, Plus, LogIn, UserPlus, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
@@ -90,6 +90,13 @@ const Navbar = () => {
                   }}
                 >
                   {user.name.toUpperCase()}
+                </Link>
+                <Link 
+                  to="/messages" 
+                  title="Private Messages"
+                  style={{ background: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <MessageCircle size={16} />
                 </Link>
                 <button onClick={handleLogout} style={{ background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                   <LogOut size={16} />
@@ -201,6 +208,8 @@ const Navbar = () => {
                 SEARCH
               </button>
               {user?.role === 'ADMIN' && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--accent)' }}>ADMIN CP</Link>}
+              
+              {user && <Link to="/messages" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--primary)' }}>MESSAGES</Link>}
               
               <div style={{ height: '1px', background: 'var(--glass-border)', margin: '0.5rem 0' }} />
               

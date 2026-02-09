@@ -21,7 +21,7 @@ const Avatar = ({ src, name, size = 40, borderRadius = '4px', border = '1px soli
   if (!isDefault) {
     return (
       <img 
-        src={finalSrc!} 
+        src={finalSrc! + '?v=' + Math.random()} 
         alt={name} 
         style={{ 
           width: sizePx, 

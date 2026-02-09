@@ -22,6 +22,13 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     if (!user) return res.status(401).json({ message: 'User no longer exists' });
 
     req.user = user;
+    
+    // Update lastSeen timestamp (non-blocking)
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeen: new Date() }
+    }).catch(err => console.error('Failed to update lastSeen', err));
+    
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid or expired token' });

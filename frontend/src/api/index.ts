@@ -32,6 +32,8 @@ export const forumApi = {
   toggleLike: (postId: string, userId: string) => api.post(`/forum/posts/${postId}/like`, { userId }),
   getProfile: (userId: string) => api.get(`/forum/users/${userId}`),
   getStats: () => api.get('/forum/stats'),
+  getOnlineMembers: () => api.get('/forum/online-members'),
+  heartbeat: () => api.post('/forum/heartbeat', {}),
   // Admin
   adminGetThreads: () => api.get('/forum/admin/threads'),
   adminDeleteThread: (id: string) => api.delete(`/forum/admin/threads/${id}`),
@@ -58,7 +60,11 @@ export const forumApi = {
   isFollowing: (userId: string) => api.get(`/forum/users/${userId}/is-following`),
   // Messages
   getConversations: () => api.get('/forum/messages/conversations'),
-  getChatHistory: (userId: string) => api.get(`/forum/messages/${userId}`),
+  getChatHistory: async (userId: string, since?: string) => {
+    const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+    const resp = await api.get(`/forum/messages/${userId}${qs}`);
+    return resp.data as Message[];
+  },
   sendMessage: (data: { receiverId: string, content: string }) => api.post('/forum/messages', data),
   // Avatar
   getAvatars: () => api.get('/forum/avatars/list'),

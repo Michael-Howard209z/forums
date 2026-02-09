@@ -57,6 +57,7 @@ router.post('/register', registerLimiter, async (req, res) => {
         password: hashedPassword,
         name,
         avatar: randomAvatar,
+        lastSeen: new Date() // Mark as online on registration
       },
     });
 
@@ -80,6 +81,12 @@ router.post('/login', async (req, res) => {
     if (!isPasswordValid) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
+
+    // Update lastSeen to mark user as online
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeen: new Date() }
+    });
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });

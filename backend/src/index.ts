@@ -40,10 +40,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Global Rate Limiter: Prevent general DDOS (Max 100 requests per 15 mins per IP)
+// Global Rate Limiter: Prevent general DDOS (Max 500 requests per 15 mins per IP)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 100,
+  limit: 500,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { message: 'Too many requests from this IP, please try again later.' }

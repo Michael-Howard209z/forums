@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Send, MessageSquare, Search, Loader2 } from 'lucide-react';
+import { Send, MessageSquare, Search, Loader2, ArrowLeft } from 'lucide-react';
 import { forumApi } from '../api';
 import Avatar from '../components/Avatar';
+import { useHeartbeat } from '../hooks/useHeartbeat';
 
 const Messages = () => {
   const [searchParams] = useSearchParams();
@@ -14,9 +15,13 @@ const Messages = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(!selectedUserId); // Hide sidebar on mobile when chat open
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const currentUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
+  
+  // Keep user marked as online
+  useHeartbeat();
 
   useEffect(() => {
     if (!currentUser) {
@@ -37,20 +42,53 @@ const Messages = () => {
     fetchConversations();
   }, [currentUser, navigate]);
 
+  const lastMessageTimestampRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (selectedUserId) {
-      const fetchMessages = async () => {
+      setShowSidebar(false); // Hide sidebar on mobile when selecting a user
+
+      let mounted = true;
+
+      const fetchInitialMessages = async () => {
         setMessagesLoading(true);
         try {
-          const res = await forumApi.getChatHistory(selectedUserId);
-          setMessages(res.data);
+          const msgs = await forumApi.getChatHistory(selectedUserId);
+          if (!mounted) return;
+          setMessages(msgs);
+          if (msgs.length) lastMessageTimestampRef.current = msgs[msgs.length - 1].createdAt;
         } catch (err) {
-          console.error("Failed to fetch messages", err);
+          console.error('Failed to fetch messages', err);
         } finally {
           setMessagesLoading(false);
         }
       };
-      fetchMessages();
+
+      // fetch initial batch
+      fetchInitialMessages();
+
+      // Poll for new messages (only fetch deltas)
+      const pollNewMessages = async () => {
+        try {
+          const since = lastMessageTimestampRef.current || undefined;
+          const newMsgs = await forumApi.getChatHistory(selectedUserId, since);
+          if (newMsgs && newMsgs.length) {
+            setMessages(prev => [...prev, ...newMsgs]);
+            lastMessageTimestampRef.current = newMsgs[newMsgs.length - 1].createdAt;
+          }
+        } catch (err) {
+          console.error('Failed to poll new messages', err);
+        }
+      };
+
+      const messagesInterval = setInterval(pollNewMessages, 2000);
+
+      return () => {
+        mounted = false;
+        clearInterval(messagesInterval);
+      };
+    } else {
+      setShowSidebar(true);
     }
   }, [selectedUserId]);
 
@@ -70,7 +108,6 @@ const Messages = () => {
       setMessages([...messages, res.data]);
       setNewMessage('');
       
-      // Update conversations if it's a new partner
       if (!conversations.find(c => c.id === selectedUserId)) {
          const partnerRes = await forumApi.getProfile(selectedUserId);
          setConversations([{ id: partnerRes.data.id, name: partnerRes.data.name, avatar: partnerRes.data.avatar }, ...conversations]);
@@ -85,27 +122,33 @@ const Messages = () => {
   const currentChatPartner = conversations.find(c => c.id === selectedUserId);
 
   return (
-    <div className="container" style={{ padding: '2rem 0', height: '85vh', display: 'flex' }}>
-      <div className="glass" style={{ width: '100%', height: '100%', display: 'grid', gridTemplateColumns: '350px 1fr' }}>
+    <div className="container" style={{ padding: '1rem 0', height: 'calc(100vh - 200px)', display: 'flex' }}>
+      <div className="glass" style={{ width: '100%', height: '100%', display: 'grid', gridTemplateColumns: window.innerWidth > 768 ? '300px 1fr' : showSidebar ? '1fr' : '0fr 1fr', gap: 0, transition: 'grid-template-columns 0.3s' }}>
         
-        {/* Sidebar */}
-        <div style={{ borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--glass-border)' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '1rem' }}>PRIVATE MESSAGES</h2>
+        {/* Sidebar - Conversations List */}
+        <div style={{ 
+          borderRight: window.innerWidth > 768 ? '1px solid var(--glass-border)' : 'none', 
+          display: 'flex', 
+          flexDirection: 'column',
+          minWidth: 0,
+          overflow: 'hidden'
+        }}>
+          <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', flexShrink: 0 }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 900, marginBottom: '0.8rem' }}>MESSAGES</h2>
             <div style={{ position: 'relative' }}>
               <input 
                 type="text" 
-                placeholder="Search Sorcerers..." 
-                style={{ width: '100%', background: '#0a0a0a', border: '1px solid var(--glass-border)', padding: '0.6rem 2.5rem 0.6rem 1rem', color: 'white', borderRadius: '4px', fontSize: '0.85rem' }}
+                placeholder="Search..." 
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid var(--glass-border)', padding: '0.6rem 2.5rem 0.6rem 0.8rem', color: 'white', borderRadius: '4px', fontSize: '0.8rem' }}
               />
-              <Search size={16} style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--text-muted)' }} />
+              <Search size={14} style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--text-muted)' }} />
             </div>
           </div>
           
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {conversations.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                No secret messages yet.
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                No messages yet.
               </div>
             ) : (
               conversations.map(conv => (
@@ -113,20 +156,20 @@ const Messages = () => {
                   key={conv.id}
                   onClick={() => navigate(`/messages?user=${conv.id}`)}
                   style={{ 
-                    padding: '1rem 1.5rem', 
+                    padding: '0.8rem', 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: '1rem', 
+                    gap: '0.8rem', 
                     cursor: 'pointer',
                     backgroundColor: selectedUserId === conv.id ? 'rgba(0, 218, 255, 0.05)' : 'transparent',
                     borderLeft: `3px solid ${selectedUserId === conv.id ? 'var(--primary)' : 'transparent'}`,
                     transition: 'all 0.2s'
                   }}
                 >
-                  <Avatar src={conv.avatar} name={conv.name} size={45} />
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conv.name.toUpperCase()}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Online</div>
+                  <Avatar src={conv.avatar} name={conv.name} size={35} />
+                  <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conv.name}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Online</div>
                   </div>
                 </div>
               ))
@@ -135,20 +178,28 @@ const Messages = () => {
         </div>
 
         {/* Chat Area */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {selectedUserId ? (
             <>
               {/* Chat Header */}
-              <div style={{ padding: '1rem 2rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <Avatar src={currentChatPartner?.avatar} name={currentChatPartner?.name || 'User'} size={40} />
-                <div>
-                  <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{currentChatPartner?.name.toUpperCase()}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#00ff7f' }}>● ACTIVE IN THE VOID</div>
+              <div style={{ padding: '0.8rem 1rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '0.8rem', flexShrink: 0 }}>
+                {window.innerWidth <= 768 && (
+                  <button 
+                    onClick={() => navigate('/messages')}
+                    style={{ background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
+                <Avatar src={currentChatPartner?.avatar} name={currentChatPartner?.name || 'User'} size={35} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentChatPartner?.name}</div>
+                  <div style={{ fontSize: '0.65rem', color: '#00ff7f' }}>● ACTIVE</div>
                 </div>
               </div>
 
               {/* Chat Messages */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                 {messagesLoading ? (
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Loader2 className="animate-spin" size={32} color="var(--primary)" />
@@ -164,18 +215,19 @@ const Messages = () => {
                       }}
                     >
                       <div style={{ 
-                        maxWidth: '70%', 
-                        padding: '0.8rem 1.2rem', 
+                        maxWidth: '85%', 
+                        padding: '0.7rem 1rem', 
                         borderRadius: '12px',
                         backgroundColor: msg.senderId === currentUser.id ? 'var(--primary)' : '#222',
                         color: msg.senderId === currentUser.id ? 'black' : 'white',
-                        fontSize: '0.9rem',
+                        fontSize: '0.85rem',
                         fontWeight: msg.senderId === currentUser.id ? '600' : '400',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word'
                       }}>
                         {msg.content}
                       </div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '3px' }}>
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
@@ -185,20 +237,20 @@ const Messages = () => {
               </div>
 
               {/* Message Input */}
-              <div style={{ padding: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
-                <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ padding: '0.8rem', borderTop: '1px solid var(--glass-border)', flexShrink: 0 }}>
+                <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '0.6rem' }}>
                   <input 
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Enter your forbidden secret..."
-                    style={{ flex: 1, background: '#111', border: '1px solid var(--glass-border)', padding: '1rem', color: 'white', borderRadius: '8px' }}
+                    placeholder="Message..."
+                    style={{ flex: 1, background: '#111', border: '1px solid var(--glass-border)', padding: '0.7rem', color: 'white', borderRadius: '6px', fontSize: '0.85rem' }}
                   />
                   <button 
                     type="submit" 
-                    style={{ background: 'var(--primary)', color: 'black', width: '50px', height: '50px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'var(--primary)', color: 'black', width: '44px', height: '44px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                   >
-                    <Send size={20} />
+                    <Send size={18} />
                   </button>
                 </form>
               </div>
@@ -206,8 +258,8 @@ const Messages = () => {
           ) : (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
               <MessageSquare size={64} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
-              <h3>SELECT A CONVERSATION</h3>
-              <p style={{ fontSize: '0.85rem' }}>Your private discussions are safe within the Infinity.</p>
+              <h3 style={{ fontSize: '1.1rem' }}>SELECT A CONVERSATION</h3>
+              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Your discussions are secure.</p>
             </div>
           )}
         </div>

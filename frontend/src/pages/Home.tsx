@@ -3,25 +3,32 @@ import { Home as HomeIcon, Layout, Map, Info, Megaphone, Shield, MessageSquare, 
 import { useNavigate, Link } from 'react-router-dom';
 import { forumApi } from '../api';
 import { getIcon } from '../utils/icons';
+import { useHeartbeat } from '../hooks/useHeartbeat';
 
 const Home = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [latestThreads, setLatestThreads] = useState<any[]>([]);
+  const [onlineMembers, setOnlineMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
+  // Keep user marked as online
+  useHeartbeat();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [catRes, statRes, latestRes] = await Promise.all([
+        const [catRes, statRes, latestRes, onlineRes] = await Promise.all([
           forumApi.getCategories(),
           forumApi.getStats(),
-          forumApi.getLatestThreads()
+          forumApi.getLatestThreads(),
+          forumApi.getOnlineMembers()
         ]);
         setCategories(catRes.data);
         setStats(statRes.data);
         setLatestThreads(latestRes.data);
+        setOnlineMembers(onlineRes.data.members || []);
       } catch (err) {
         console.error("Failed to fetch forum data", err);
       } finally {
@@ -29,6 +36,18 @@ const Home = () => {
       }
     };
     fetchData();
+
+    // Poll online members every 10 seconds for real-time updates
+    const interval = setInterval(async () => {
+      try {
+        const onlineRes = await forumApi.getOnlineMembers();
+        setOnlineMembers(onlineRes.data.members || []);
+      } catch (err) {
+        console.error("Failed to fetch online members", err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -172,13 +191,29 @@ const Home = () => {
           <div className="sidebar-widget">
             <div className="widget-title"><HomeIcon size={14} /> ONLINE MEMBERS</div>
             <div className="widget-content">
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.75rem' }}>
-                <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>Gojo Satoru</span>, 
-                <span style={{ color: 'var(--secondary)' }}>Megumi</span>, 
-                <span>Itadori</span>, 
-                <span style={{ color: 'var(--primary)' }}>Nobara</span>
-              </div>
-              <p style={{ marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total: 4 users, 15 guests</p>
+              {onlineMembers.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No members online</div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.75rem', marginBottom: '0.5rem' }}>
+                    {onlineMembers.map((member) => (
+                      <Link 
+                        key={member.id}
+                        to={`/profile/${member.id}`}
+                        style={{ 
+                          color: member.role === 'ADMIN' ? 'var(--accent)' : member.role === 'MOD' ? 'var(--secondary)' : 'var(--primary)',
+                          fontWeight: 'bold' 
+                        }}
+                      >
+                        {member.name}
+                      </Link>
+                    ))}
+                  </div>
+                  <p style={{ marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    Total: {onlineMembers.length} {onlineMembers.length === 1 ? 'user' : 'users'} online
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
