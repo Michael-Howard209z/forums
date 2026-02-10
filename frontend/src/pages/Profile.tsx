@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, MessageSquare, Shield, Zap, MapPin, Link as LinkIcon, Info, UserPlus, UserCheck, Camera, X } from 'lucide-react';
-import { forumApi, BASE_URL } from '../api';
+import { forumApi } from '../api';
 import Avatar from '../components/Avatar';
 import { motion, AnimatePresence } from 'framer-motion';
 

@@ -15,8 +15,7 @@ const messagesLimiter = rateLimit({
   keyGenerator: (req) => {
     // If authentication middleware ran before this limiter, prefer user id
     const maybeUser = (req as any).user;
-    // Use ipKeyGenerator helper for safe IPv6 handling (as per express-rate-limit security requirement)
-    return maybeUser?.id || ipKeyGenerator(req);
+    return maybeUser?.id || req.ip;
   },
   message: { message: 'Too many messaging requests, slow down.' }
 });
