@@ -1,9 +1,25 @@
 import { Router } from 'express';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// Rate limiter for messaging endpoints — key by authenticated user when available
+const messagesLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // allow up to 60 messages-related requests per minute per user/ip
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // If authentication middleware ran before this limiter, prefer user id
+    const maybeUser = (req as any).user;
+    // Use ipKeyGenerator helper for safe IPv6 handling (as per express-rate-limit security requirement)
+    return maybeUser?.id || ipKeyGenerator(req);
+  },
+  message: { message: 'Too many messaging requests, slow down.' }
+});
 
 const createAuditLog = async (adminId: string, action: string, target?: string, details?: string) => {
   try {
@@ -729,7 +745,7 @@ router.get('/users/:id/is-following', authenticate, async (req: AuthRequest, res
 // --- PRIVATE MESSAGES ---
 
 // Get all conversations for current user
-router.get('/messages/conversations', authenticate, async (req: AuthRequest, res) => {
+router.get('/messages/conversations', authenticate, messagesLimiter, async (req: AuthRequest, res) => {
   try {
     const userId = req.user.id;
     // This is a simplified way to get unique conversation partners
@@ -757,7 +773,7 @@ router.get('/messages/conversations', authenticate, async (req: AuthRequest, res
 
 // Get chat history with a specific user
 // Supports incremental fetch via ?since=<ISO timestamp>. If not provided, returns last 100 messages.
-router.get('/messages/:userId', authenticate, async (req: AuthRequest, res) => {
+router.get('/messages/:userId', authenticate, messagesLimiter, async (req: AuthRequest, res) => {
   try {
     const myId = req.user.id;
     const otherId = req.params.userId as string;
@@ -807,7 +823,7 @@ router.get('/messages/:userId', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Send a message
-router.post('/messages', authenticate, async (req: AuthRequest, res) => {
+router.post('/messages', authenticate, messagesLimiter, async (req: AuthRequest, res) => {
   try {
     const { receiverId, content } = req.body;
     const message = await prisma.message.create({

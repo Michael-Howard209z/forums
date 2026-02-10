@@ -40,20 +40,31 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Global Rate Limiter: Prevent general DDOS (Max 500 requests per 15 mins per IP)
-const globalLimiter = rateLimit({
+// Per-route rate limiters (avoid globally blocking an IP for benign heavy endpoints like chat)
+const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 500,
+  limit: 30, // login/register attempts per 15 minutes per IP
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { message: 'Too many requests from this IP, please try again later.' }
+  message: { message: 'Too many authentication attempts, please try again later.' }
 });
-app.use('/api/', globalLimiter);
+
+// Lightweight global limiter for other API routes (higher threshold)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 2000,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { message: 'Too many requests, slow down.' }
+});
 
 app.use(express.static('public'));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/forum', forumRoutes);
+// Apply auth-specific rate limiter to authentication routes
+app.use('/api/auth', authLimiter, authRoutes);
+
+// Apply permissive API limiter to forum routes (message-specific limits live inside the forum router)
+app.use('/api/forum', apiLimiter, forumRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

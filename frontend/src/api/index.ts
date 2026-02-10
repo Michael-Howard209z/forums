@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Message } from '../types';
 
 // Use relative path so it works with both localhost and Cloudflare tunnel
 export const API_URL = '/api';
