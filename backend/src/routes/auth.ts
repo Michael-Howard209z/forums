@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
@@ -9,6 +9,7 @@ import path from 'path';
 const router = Router();
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY || '';
 
 // Helper function to get random avatar
 function getRandomAvatar(): string {
@@ -26,6 +27,45 @@ function getRandomAvatar(): string {
   }
 }
 
+// Cloudflare Turnstile verification middleware
+async function verifyCaptcha(req: Request, res: Response, next: NextFunction) {
+  const { captchaToken } = req.body;
+
+  // Skip verification if no secret key is configured (development)
+  if (!TURNSTILE_SECRET_KEY) {
+    console.warn('⚠️ TURNSTILE_SECRET_KEY not set — skipping CAPTCHA verification');
+    return next();
+  }
+
+  if (!captchaToken) {
+    return res.status(400).json({ message: 'CAPTCHA verification required.' });
+  }
+
+  try {
+    const verifyResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: TURNSTILE_SECRET_KEY,
+        response: captchaToken,
+        remoteip: req.ip,
+      }),
+    });
+
+    const result = await verifyResponse.json() as { success: boolean; 'error-codes'?: string[] };
+
+    if (!result.success) {
+      console.warn('Turnstile verification failed:', result['error-codes']);
+      return res.status(400).json({ message: 'CAPTCHA verification failed. Please try again.' });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Turnstile verification error:', error);
+    return res.status(500).json({ message: 'CAPTCHA verification service unavailable.' });
+  }
+}
+
 // Chống thư rác: Tối đa 3 lượt đăng ký mỗi giờ cho mỗi địa chỉ IP
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -40,7 +80,7 @@ const loginLimiter = rateLimit({
   message: { message: 'Too many login attempts. Please try again in 15 minutes.' }
 });
 
-router.post('/register', registerLimiter, async (req, res) => {
+router.post('/register', registerLimiter, verifyCaptcha, async (req, res) => {
   try {
     const { email, password, name } = req.body;
     
@@ -68,7 +108,7 @@ router.post('/register', registerLimiter, async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, verifyCaptcha, async (req, res) => {
   try {
     const { email, password } = req.body;
 

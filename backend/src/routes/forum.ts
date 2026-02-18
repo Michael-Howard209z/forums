@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 // Rate limiter for messaging endpoints — key by authenticated user when available
 const messagesLimiter = rateLimit({
@@ -12,10 +14,10 @@ const messagesLimiter = rateLimit({
   max: 60, // allow up to 60 messages-related requests per minute per user/ip
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: (req) => {
+  keyGenerator: (req, res) => {
     // If authentication middleware ran before this limiter, prefer user id
-    const maybeUser = (req as any).user;
-    return maybeUser?.id || req.ip;
+    const maybeUser = (req as AuthRequest).user;
+    return maybeUser?.id || ipKeyGenerator(req.ip);
   },
   message: { message: 'Too many messaging requests, slow down.' }
 });
@@ -82,7 +84,9 @@ router.post('/heartbeat', authenticate, async (req: AuthRequest, res) => {
       where: { id: req.user.id },
       data: { lastSeen: new Date() }
     });
-    res.json({ status: 'ok' });
+    // Re-issue a new token with a refreshed expiry date
+    const token = jwt.sign({ userId: req.user.id }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ status: 'ok', token });
   } catch (error: any) {
     res.status(500).json({ message: 'Error updating heartbeat', error: error.message });
   }

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { authApi } from '../api';
+import { useTurnstile } from '../hooks/useTurnstile';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -10,13 +11,18 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { containerRef: turnstileRef, token: captchaToken, reset: resetCaptcha } = useTurnstile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!captchaToken) {
+      setError('Please complete the CAPTCHA verification.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      const res = await authApi.login({ email, password });
+      const res = await authApi.login({ email, password, captchaToken });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       // Trigger update for App.tsx
@@ -25,6 +31,7 @@ const Login = () => {
       navigate('/home');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -78,22 +85,30 @@ const Login = () => {
             />
           </div>
           
+          {/* Cloudflare Turnstile CAPTCHA */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div ref={turnstileRef} />
+          </div>
+
           <motion.button 
             whileHover={{ scale: 1.02, backgroundColor: 'var(--secondary)' }}
             whileTap={{ scale: 0.98 }}
-            disabled={loading}
+            disabled={loading || !captchaToken}
             style={{
               padding: '1rem',
-              backgroundColor: 'var(--primary)',
+              backgroundColor: !captchaToken ? 'rgba(14, 165, 233, 0.3)' : 'var(--primary)',
               color: 'white',
               borderRadius: '0',
               fontWeight: 'bold',
-              marginTop: '1rem',
+              marginTop: '0.5rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              letterSpacing: '2px'
+              letterSpacing: '2px',
+              cursor: !captchaToken ? 'not-allowed' : 'pointer',
+              opacity: !captchaToken ? 0.6 : 1,
+              transition: 'all 0.3s ease'
             }}
           >
             {loading ? 'EXPANDING...' : 'ACCESS'} <ArrowRight size={18} />
